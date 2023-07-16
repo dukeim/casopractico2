@@ -1,0 +1,116 @@
+---
+# tasks file for setup_webserver
+- name: create working directory
+  ansible.builtin.file:
+    path: "{{ work_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: custom index.html
+  ansible.builtin.copy:
+    dest: "{{ work_dir }}/index.html"
+    content: |
+      <p>Custom Web Page</p>          
+
+- name: custom httpd.conf
+  ansible.builtin.copy:
+    src: httpd.conf
+    dest: "{{ work_dir }}"
+
+- name: Generar usuario/password con htpasswd
+  shell: htpasswd -cBb "{{ work_dir }}/.creds" test t3st
+
+- name: generate htaccess
+  ansible.builtin.copy:
+    dest: "{{ work_dir }}/.htaccess"
+    content: |
+      AuthType Basic
+      AuthName "Restricted Content"
+      AuthUserFile /usr/local/apache2/.creds
+      Require valid-user
+
+- name: Generate private key
+  community.crypto.openssl_privatekey:
+    path: "{{ work_dir }}/localhost.key"
+    size: 2048
+    type: RSA
+
+- name: Generate CSR (Certificate Signing Request)
+  community.crypto.openssl_csr:
+    path: "{{ work_dir }}/localhost.csr"
+    privatekey_path: "{{ work_dir }}/localhost.key"
+    subject:
+      C: ES
+      ST: Madrid
+      L: Madrid
+      O: DevOps
+      OU: ejemplo
+      CN: vml
+
+- name: Generate self-signed certificate
+  community.crypto.x509_certificate:
+    path: "{{ work_dir }}/localhost.crt"
+    privatekey_path: "{{ work_dir }}/localhost.key"
+    csr_path: "{{ work_dir }}/localhost.csr"
+    provider: selfsigned
+
+- name: generate containerfile
+  ansible.builtin.copy:
+    dest: "{{ work_dir }}/Containerfile"
+    content: |
+      FROM docker.io/httpd:latest
+      COPY index.html /usr/local/apache2/htdocs/
+      COPY .htaccess /usr/local/apache2/htdocs/
+      COPY httpd.conf /usr/local/apache2/conf/
+      COPY .creds /usr/local/apache2/
+      COPY localhost.key /usr/local/apache2/
+      COPY localhost.crt /usr/local/apache2/
+
+#- name: Build Podman image
+#  containers.podman.podman_image:
+#    name: my_image
+#    tag: "{{ registry }}/webserver:{{ image_tag }}"
+#    path: "{{ work_dir }}/"
+
+- name: Login to ACR
+  containers.podman.podman_login:
+    registry: "{{ registry }}"
+    username: "{{ acr_username }}"
+    password: "{{ acr_userpass }}"
+
+- name: Build and push the image using existing credentials
+  containers.podman.podman_image:
+    name: "{{ image_name }}"
+    tag: "{{ image_tag }}"
+    path: "{{ work_dir }}/"
+    push: true
+    push_args:
+      dest: "{{ registry }}"
+
+- name: Crear contenedor
+  containers.podman.podman_container:
+    name: web
+    image: "{{ registry }}/{{ image_name }}:{{ image_tag }}"
+    ports:
+      - "8080:443"
+    state: created
+    generate_systemd:
+      path: "/etc/systemd/system"
+      new: true
+      restart_policy: on-failure
+      container_prefix: "container"
+
+- name: Forzar systemd a recargar configuraciones 
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Habilitar servicio 
+  ansible.builtin.systemd:
+    name: container-web.service
+    enabled: true
+    state: started
+    masked: no
+
+
+
+    

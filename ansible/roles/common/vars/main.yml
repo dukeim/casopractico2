@@ -1,0 +1,7 @@
+---
+# vars file for common
+rpms:
+  - firewalld
+
+servicios:
+  - firewalld

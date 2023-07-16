@@ -1,0 +1,23 @@
+---
+# tasks file for common
+- name: 'Actualizar rpms'
+  yum:
+    name: '*'
+    state: latest
+  notify: Reinicio
+  tags: common
+
+- name: 'Instalar rpms'
+  yum:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rpms }}"
+  tags: common
+
+- name: 'Habilitar servicios necesarios'
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop: "{{ servicios }}"
+  tags: common

@@ -1,0 +1,28 @@
+---
+# tasks file for install_webserver
+- name: 'Instalar rpms'
+  yum:
+    name: "{{ item }}"
+    state: latest
+  loop: "{{ rpms }}"
+  tags: install_webserver
+
+#- name: 'Instalar httpd'
+#  yum:
+#    name: httpd
+#    state: latest
+
+- name: 'Permitir trafico web'
+  firewalld:
+    port: 80/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  tags: install_webserver
+
+- name: 'Habilitar servicio httpd'
+  systemd:
+    name: httpd
+    state: started
+    enabled: yes
+  tags: install_webserver 

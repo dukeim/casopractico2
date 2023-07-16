@@ -1,0 +1,7 @@
+---
+# vars file for install_webserver
+rpms:
+  - podman
+  - httpd-tools
+  - httpd
+  - openssl

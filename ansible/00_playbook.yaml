@@ -1,0 +1,24 @@
+---
+- name: 'Instalación de httpd'
+  hosts: all
+  remote_user: azureuser
+  become: true
+  
+  tasks:
+    - name: 'Ejecucion de tareas comunes'
+      include_role:
+        name: common
+      tags: common
+
+    - name: 'Instalar webserver'
+      include_role:
+        name: install_webserver
+      when: inventory_hostname in groups['webservers']
+      tags: webservers
+    
+    - name: 'Generar webapp'
+      include_role:
+        name: generate_webapp
+      when: inventory_hostname in groups['webservers']
+      tags: webservers
+    

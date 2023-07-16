@@ -1,0 +1,8 @@
+---
+# vars file for setup_webserver
+work_dir: '/home/azureuser/webserver'
+registry: 'acrjego.azurecr.io'
+image_tag: 'casopractico2'
+image_name: 'web_app'
+acr_username: 'acrjego'
+acr_userpass: 'rGqt2IRwkpT6Btf1fuBxyJfuFArh4pvhrk2t0DRnQi+ACRAhbnD1'
