@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ aplicacion.storage.pvc_name }}"
+spec:
+  storageClassName: {{ aplicacion.storage.storage_class }}
+  resources:
+    requests:
+      storage: "{{ aplicacion.storage.capacity }}"
+  accessModes:
+    - ReadWriteMany
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ aplicacion.frontend.nombre }}"
+  namespace: "{{ k8s_namespace }}"
+spec:
+  replicas: {{ aplicacion.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: "{{ aplicacion.frontend.nombre }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ aplicacion.frontend.nombre }}"
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
+      volumes:
+        - name: "{{ aplicacion.storage.pv_name }}"
+          persistentVolumeClaim:
+            claimName: "{{ aplicacion.storage.pvc_name }}"
+      containers:
+        - name: "{{ aplicacion.frontend.nombre }}"
+          image: "{{ registry }}/{{ persistent_app_image_name }}:{{ image_tag }}"
+          resources:
+            requests:
+              cpu: "{{ aplicacion.frontend.recursos.cpu }}"
+              memory: "{{ aplicacion.frontend.recursos.memoria }}"
+            limits:
+              cpu: "{{ aplicacion.frontend.limites.cpu }}"
+              memory: "{{ aplicacion.frontend.limites.memoria }}"
+          ports:
+            - containerPort: {{ aplicacion.frontend.puerto }}
+              name: "nginx-server"
+          volumeMounts:
+            - mountPath: "/usr/share/nginx/html"
+              name: "{{ aplicacion.storage.pv_name }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ aplicacion.frontend.nombre }}"
+  namespace: "{{ k8s_namespace }}"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: {{ aplicacion.frontend.puerto }}
+  selector:
+    app: "{{ aplicacion.frontend.nombre }}"

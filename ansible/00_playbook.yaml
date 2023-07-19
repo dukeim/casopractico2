@@ -1,24 +1,92 @@
 ---
-- name: 'Instalación de httpd'
-  hosts: all
-  remote_user: azureuser
-  become: true
+# - name: 'Instalación de httpd'
+#   hosts: all
+#   remote_user: azureuser
+#   become: true
   
-  tasks:
-    - name: 'Ejecucion de tareas comunes'
-      include_role:
-        name: common
-      tags: common
+#   tasks:
+#     - name: 'Ejecucion de tareas comunes'
+#       include_role:
+#         name: common
+#       tags: common
 
-    - name: 'Instalar webserver'
-      include_role:
-        name: install_webserver
-      when: inventory_hostname in groups['webservers']
-      tags: webservers
+#     - name: 'Instalar webserver'
+#       include_role:
+#         name: install_webserver
+#       when: inventory_hostname in groups['webservers']
+#       tags: webservers
     
-    - name: 'Generar webapp'
-      include_role:
-        name: generate_webapp
-      when: inventory_hostname in groups['webservers']
-      tags: webservers
+#     - name: 'Generar webapp'
+#       include_role:
+#         name: generate_webapp
+#       when: inventory_hostname in groups['webservers']
+#       tags: webservers
+- name: 'Instalación de Web app en kubernetes'
+  hosts: localhost
+  become: true
+  vars_files:
+    - vars/00_vars.yaml
+  tasks:
+    - name: instalar podman
+      package:
+        name: podman
+        state: present
+    - name: custom index.html
+      ansible.builtin.copy:
+        dest: "./index.html"
+        content: |
+          <html>
+            <body>
+              <h1>Bienvenidos a mi Web App</h1>
+              <p>Esta applicación es un demo de aplicación con almacenamiento persistente sobre AKS </p>
+            </body>
+          </html>         
+    - name: generate containerfile
+      ansible.builtin.copy:
+        dest: "./Containerfile"
+        content: |
+          FROM docker.io/library/nginx:latest
+          COPY index.html /usr/share/nginx/html/
+    - name: Login to ACR
+      containers.podman.podman_login:
+        registry: "{{ registry }}"
+        username: "{{ acr_username }}"
+        password: "{{ acr_userpass }}"
+
+    - name: Build and push the image using existing credentials
+      containers.podman.podman_image:
+        name: "{{ persistent_app_image_name }}"
+        tag: "{{ image_tag }}"
+        path: "./"
+        push: true
+        push_args:
+          dest: "{{ registry }}"
     
+    - name: 'Definir los objectos deployment y servicios'
+      template:
+        src: templates/stateless.j2
+        dest: "{{ localhost_work_dir }}/{{ aplicacion.definicion }}"
+        
+    - name: 'Crear el namespace de trabajo'
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: "{{ k8s_namespace }}"
+        wait: yes
+    
+    - name: 'Crear Deployments y servicios de la aplicación'
+      kubernetes.core.k8s:
+        state: present
+        template: "{{ localhost_work_dir }}/{{ aplicacion.definicion }}"
+        wait: yes
+    
+    - name: Obtener info del servicio
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: "{{ aplicacion.frontend.nombre }}"
+        namespace: "{{ k8s_namespace }}"
+      register: app_service
+    
+    - name: Mostrar datos del servicio
+      debug:
+        var: app_service
