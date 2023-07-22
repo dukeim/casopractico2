@@ -1,4 +1,4 @@
-/*
+
 resource "azurerm_kubernetes_cluster" "myk8s" {
   name                = "jego-aks1"
   location            = var.location_name
@@ -26,4 +26,3 @@ resource "azurerm_role_assignment" "role_acrpull" {
   scope                            = azurerm_container_registry.acr.id
   skip_service_principal_aad_check = true
 }
-*/
