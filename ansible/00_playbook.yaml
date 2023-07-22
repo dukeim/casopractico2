@@ -21,32 +21,35 @@
 #         name: generate_webapp
 #       when: inventory_hostname in groups['webservers']
 #       tags: webservers
-- name: 'Instalación de Web app en kubernetes'
+- name: 'Instalación de nginx en kubernetes'
   hosts: localhost
   become: true
   vars_files:
     - vars/00_vars.yaml
+  environment:
+    AZURE_CONFIG_DIR: "/home/ubuntu/.azure"
+    KUBECONFIG: "/home/ubuntu/.kube/config"
   tasks:
     - name: instalar podman
       package:
         name: podman
         state: present
-    - name: custom index.html
-      ansible.builtin.copy:
-        dest: "./index.html"
-        content: |
-          <html>
-            <body>
-              <h1>Bienvenidos a mi Web App</h1>
-              <p>Esta applicación es un demo de aplicación con almacenamiento persistente sobre AKS </p>
-            </body>
-          </html>         
+    # - name: custom index.html
+    #   ansible.builtin.copy:
+    #     dest: "./index.html"
+    #     content: |
+    #       <html>
+    #         <body>
+    #           <h1>Bienvenidos a mi Web App</h1>
+    #           <p>Esta applicación es un demo de aplicación con almacenamiento persistente sobre AKS </p>
+    #         </body>
+    #       </html>         
     - name: generate containerfile
       ansible.builtin.copy:
         dest: "./Containerfile"
         content: |
           FROM docker.io/library/nginx:latest
-          COPY index.html /usr/share/nginx/html/
+    #      COPY index.html /usr/share/nginx/html/
     - name: Login to ACR
       containers.podman.podman_login:
         registry: "{{ registry }}"
@@ -66,27 +69,35 @@
       template:
         src: templates/stateless.j2
         dest: "{{ localhost_work_dir }}/{{ aplicacion.definicion }}"
-        
+    
+    - name: Obtener credenciales de AKS
+      shell: az aks get-credentials --resource-group {{ rg_name }} --name {{ aks_cluster_name }}
+
     - name: 'Crear el namespace de trabajo'
       kubernetes.core.k8s:
         kind: Namespace
         name: "{{ k8s_namespace }}"
         wait: yes
     
-    - name: 'Crear Deployments y servicios de la aplicación'
+    - name: 'Crear Deployment'
       kubernetes.core.k8s:
         state: present
         template: "{{ localhost_work_dir }}/{{ aplicacion.definicion }}"
         wait: yes
     
+    - name: Esperar 5 segundos para obtener asignacion de IP publica
+      pause:
+        seconds: 5
+
     - name: Obtener info del servicio
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Service
         name: "{{ aplicacion.frontend.nombre }}"
         namespace: "{{ k8s_namespace }}"
-      register: app_service
+      register: service_info
     
-    - name: Mostrar datos del servicio
+    - name: Mostrar dirección IP pública del servicio
       debug:
-        var: app_service
+        msg: "Dirección IP pública del servicio LoadBalancer: {{ service_info.resources[0].status.loadBalancer.ingress[0].ip }}"
+      when: service_info.resources | length > 0

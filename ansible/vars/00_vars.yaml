@@ -3,6 +3,8 @@ registry: 'acrjego.azurecr.io'
 image_tag: 'casopractico2'
 web_app_image_name: 'web_app'
 persistent_app_image_name: 'nginx'
+rg_name: 'rg-createdbyTF'
+aks_cluster_name: 'jego-aks1'
 acr_username: 'acrjego'
 acr_userpass: 'rGqt2IRwkpT6Btf1fuBxyJfuFArh4pvhrk2t0DRnQi+ACRAhbnD1'
 k8s_namespace: 'casopractico2'
@@ -11,17 +13,18 @@ aplicacion:
   definicion: "persistent_app.yaml"
   frontend:
     nombre: web-server
+    content_path: /usr/share/nginx/html
     replicas: 1
     recursos:
-      cpu: 100m
-      memoria: 128Mi
+      cpu: 50m
+      memoria: 8Mi
     limites:
-      cpu: 250m
-      memoria: 256Mi
+      cpu: 75m
+      memoria: 16Mi
     puerto: 80
   storage:
-    pvc_name: pvc-file-csi
-    pv_name: pv-file-csi
+    pvc_name: pvc-file
+    pv_name: pv-file
     capacity: 1Gi
-    storage_class: azurefile-csi
+    storage_class: azurefile
   

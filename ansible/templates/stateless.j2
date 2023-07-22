@@ -2,13 +2,14 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: "{{ aplicacion.storage.pvc_name }}"
+  namespace: "{{ k8s_namespace }}"
 spec:
   storageClassName: {{ aplicacion.storage.storage_class }}
   resources:
     requests:
       storage: "{{ aplicacion.storage.capacity }}"
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,7 +46,7 @@ spec:
             - containerPort: {{ aplicacion.frontend.puerto }}
               name: "nginx-server"
           volumeMounts:
-            - mountPath: "/usr/share/nginx/html"
+            - mountPath: "{{ aplicacion.frontend.content_path }}"
               name: "{{ aplicacion.storage.pv_name }}"
 ---
 apiVersion: v1
