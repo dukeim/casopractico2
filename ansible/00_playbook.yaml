@@ -21,7 +21,7 @@
          name: generate_webapp
        when: inventory_hostname in groups['webservers']
        tags: webservers
-       
+
 - name: 'Instalación de nginx en kubernetes'
   hosts: localhost
   become: true
@@ -72,7 +72,7 @@
         dest: "{{ localhost_work_dir }}/{{ aplicacion.definicion }}"
     
     - name: Obtener credenciales de AKS
-      shell: az aks get-credentials --resource-group {{ rg_name }} --name {{ aks_cluster_name }}
+      shell: "az aks get-credentials --resource-group {{ rg_name }} --name {{ aks_cluster_name }} --overwrite-existing"
 
     - name: 'Crear el namespace de trabajo'
       kubernetes.core.k8s:
